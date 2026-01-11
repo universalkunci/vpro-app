@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Universal Group - Pembelian</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background: #f1f5f9; font-family: sans-serif; margin: 0; }
+        .nav { background: #1e293b; padding: 1rem 2rem; display: flex; justify-content: space-between; color: white; }
+        .nav a { color: #94a3b8; text-decoration: none; margin-left: 1rem; }
+        .container { max-width: 600px; margin: 3rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        input, select, button { width: 100%; padding: 10px; margin-top: 15px; border-radius: 5px; border: 1px solid #ddd; }
+        button { background: #10b981; color: white; border: none; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+    <div class="nav-brand">UNIVERSAL GROUP <strong>V-PRO MAX</strong></div>
+    <div class="nav-links">
+        <a href="index.html" style="color:white">Dashboard</a>
+        <a href="produk.html">Produk & Stok</a>
+        <a href="pembelian.html">Pembelian</a>
+        <a href="penjualan.html">Penjualan</a>
+    </div>
+</nav>
+    <div class="container">
+        <h3>Input Stok Masuk</h3>
+        <label>Pilih Produk</label>
+        <select id="skuSelect"></select>
+        <input type="number" id="qty" placeholder="Jumlah Barang Masuk">
+        <input type="text" id="note" placeholder="Keterangan (Contoh: Supplier A)">
+        <button onclick="addStock()">Tambah ke Gudang</button>
+    </div>
+    <script src="core-db.js"></script>
+    <script>
+        let db;
+        CoreDB.init().then(res => { 
+            db = res; 
+            db.transaction("master").objectStore("master").getAll().onsuccess = e => {
+                const sel = document.getElementById('skuSelect');
+                e.target.result.forEach(p => sel.innerHTML += `<option value="${p.sku}">${p.sku} - ${p.nama}</option>`);
+            }
+        });
+
+        window.addStock = async function() {
+    const sku = document.getElementById('skuSelect').value;
+    const qty = parseInt(document.getElementById('qty').value);
+    
+    await CloudDB.add("stock_history", {
+        sku: sku,
+        qty: qty,
+        type: 'IN',
+        date: new Date().toLocaleString('id-ID'),
+        note: document.getElementById('note').value || "Pembelian Cloud"
+    });
+    
+    alert("Stok diperbarui di semua perangkat!");
+    location.href = "produk.html";
+};
+    </script>
+</body>
+</html>

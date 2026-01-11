@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Laporan Akhir - ProfitTrack</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-brand">PROFITTRACK</div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="master.html">Master</a>
+            <a href="penjualan.html">Penjualan</a>
+            <a href="pembelian.html">Pembelian</a>
+            <a href="laporan.html" class="active">Laporan</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2>Laporan Laba Rugi</h2>
+        
+        <div class="global-stats">
+            <div class="stat-card">
+                <span>Total Bruto (Penjualan)</span>
+                <strong id="totalSales" style="color:var(--primary)">Rp 0</strong>
+            </div>
+            <div class="stat-card">
+                <span>Total Pengeluaran (Pembelian)</span>
+                <strong id="totalCost" style="color:var(--danger)">Rp 0</strong>
+            </div>
+            <div class="stat-card">
+                <span>Profit Bersih (Net)</span>
+                <strong id="netProfit" style="color:var(--success)">Rp 0</strong>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Rincian Performa per Toko</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Platform</th>
+                        <th>Toko</th>
+                        <th>Omzet</th>
+                        <th>Profit Bruto</th>
+                    </tr>
+                </thead>
+                <tbody id="reportSalesBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="core-db.js"></script>
+    <script>
+        CoreDB.init().then(db => {
+            let salesSum = 0;
+            let profitBrutoSum = 0;
+            let costSum = 0;
+
+            // 1. Ambil data Penjualan
+            db.transaction("history").objectStore("history").getAll().onsuccess = (e) => {
+                const body = document.getElementById('reportSalesBody');
+                e.target.result.forEach(item => {
+                    salesSum += item.sales;
+                    profitBrutoSum += item.profit;
+                    body.innerHTML += `
+                        <tr>
+                            <td>${item.mplace}</td>
+                            <td>${item.store}</td>
+                            <td>Rp ${item.sales.toLocaleString('id-ID')}</td>
+                            <td>Rp ${item.profit.toLocaleString('id-ID')}</td>
+                        </tr>`;
+                });
+                updateFinal();
+            };
+
+            // 2. Ambil data Pembelian
+            db.transaction("pembelian").objectStore("pembelian").getAll().onsuccess = (e) => {
+                e.target.result.forEach(item => {
+                    costSum += item.total;
+                });
+                updateFinal();
+            };
+
+            function updateFinal() {
+                document.getElementById('totalSales').innerText = "Rp " + salesSum.toLocaleString('id-ID');
+                document.getElementById('totalCost').innerText = "Rp " + costSum.toLocaleString('id-ID');
+                document.getElementById('netProfit').innerText = "Rp " + (profitBrutoSum - costSum).toLocaleString('id-ID');
+            }
+        });
+    </script>
+</body>
+</html>

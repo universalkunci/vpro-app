@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>V-PRO - Master Produk Cloud</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #4f46e5; --slate-800: #1e293b; }
+        body { background: #f1f5f9; font-family: sans-serif; margin: 0; font-size: 13px; }
+        .nav { background: var(--slate-800); padding: 1rem 2rem; display: flex; justify-content: space-between; color: white; align-items: center; }
+        .nav a { color: #94a3b8; text-decoration: none; margin-left: 1rem; }
+        .container { max-width: 1200px; margin: 20px auto; display: grid; grid-template-columns: 1fr 350px; gap: 20px; padding: 0 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:100; }
+        .modal-content { background:white; width:850px; margin:50px auto; padding:20px; border-radius:8px; max-height:80vh; overflow-y:auto; }
+    </style>
+</head>
+<body>
+    <nav class="nav">
+        <strong>UNIVERSAL GROUP V-PRO</strong>
+        <div>
+            <a href="index.html">Dashboard</a>
+            <a href="produk.html" style="color:white">Produk</a>
+            <a href="pembelian.html">Pembelian</a>
+            <a href="penjualan.html">Penjualan</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px">
+                <input type="text" id="src" placeholder="Cari SKU atau Nama..." style="padding:8px; width:60%" onkeyup="render()">
+                <button onclick="document.getElementById('fileEx').click()">Upload Excel</button>
+                <input type="file" id="fileEx" hidden onchange="uploadMasal(event)">
+            </div>
+            <table>
+                <thead>
+                    <tr style="background:#f8fafc"><th>SKU</th><th>Nama Barang</th><th>HPP</th><th>Stok</th><th>Aksi</th></tr>
+                </thead>
+                <tbody id="pBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>Tambah/Edit Produk</h3>
+            <input type="text" id="sku" placeholder="SKU" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px">
+            <input type="text" id="nama" placeholder="Nama Barang" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px">
+            <input type="number" id="hpp" placeholder="HPP (Harga Modal)" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px">
+            <button onclick="simpanBaru()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer">Simpan Ke Cloud</button>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h3 id="mTitle">Kartu Stok</h3>
+            <table>
+                <thead>
+                    <tr style="background:#1e293b; color:white">
+                        <th>Tanggal</th><th>Keterangan</th><th>Masuk</th><th>Keluar</th><th>Sisa Saldo</th>
+                    </tr>
+                </thead>
+                <tbody id="hBody"></tbody>
+            </table>
+            <button onclick="document.getElementById('modal').style.display='none'" style="margin-top:20px; padding:10px 20px">Tutup</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { CloudDB } from './core-db.js';
+
+        // Fungsi Simpan Manual
+        window.simpanBaru = async function() {
+            const sku = document.getElementById('sku').value.toUpperCase().trim();
+            const nama = document.getElementById('nama').value;
+            const hpp = parseFloat(document.getElementById('hpp').value);
+            if(!sku || !nama) return alert("SKU & Nama wajib diisi!");
+            
+            await CloudDB.set("products", sku, { nama, hpp });
+            alert("Berhasil!");
+            location.reload();
+        };
+
+        // Fungsi Tampilkan Tabel
+        window.render = async function() {
+            const keyword = document.getElementById('src').value.toUpperCase();
+            const prods = await CloudDB.getAll("products");
+            const hist = await CloudDB.getAll("stock_history");
+            
+            const tbody = document.getElementById('pBody');
+            tbody.innerHTML = prods
+                .filter(p => p.id.includes(keyword) || p.nama.toUpperCase().includes(keyword))
+                .map(p => {
+                    const stok = hist.filter(h => h.sku === p.id).reduce((a, b) => a + (b.type === 'IN' ? b.qty : -b.qty), 0);
+                    return `<tr>
+                        <td><b>${p.id}</b></td><td>${p.nama}</td><td>${p.hpp.toLocaleString()}</td>
+                        <td style="font-weight:bold; color:${stok < 5 ? 'red' : 'green'}">${stok}</td>
+                        <td>
+                            <button onclick="viewHist('${p.id}')">📑</button>
+                            <button onclick="hapusProd('${p.id}')">🗑️</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+        };
+
+        // Fungsi Kartu Stok Detail
+        window.viewHist = async function(sku) {
+            document.getElementById('mTitle').innerText = "Kartu Stok: " + sku;
+            const hist = await CloudDB.getAll("stock_history");
+            const filtered = hist.filter(h => h.sku === sku).sort((a,b) => new Date(a.date) - new Date(b.date));
+            
+            let saldo = 0;
+            document.getElementById('hBody').innerHTML = filtered.map(h => {
+                const inc = h.type === 'IN' ? h.qty : 0;
+                const out = h.type === 'OUT' ? h.qty : 0;
+                saldo += (inc - out);
+                return `<tr>
+                    <td>${h.date}</td><td>${h.note}</td>
+                    <td style="color:green">${inc||'-'}</td><td style="color:red">${out||'-'}</td>
+                    <td style="background:#f8fafc; font-weight:bold">${saldo}</td>
+                </tr>`;
+            }).reverse().join('');
+            document.getElementById('modal').style.display='block';
+        };
+
+        window.hapusProd = async function(id) { if(confirm("Hapus produk?")) { await CloudDB.delete("products", id); render(); }};
+
+        window.uploadMasal = async function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const rows = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(ev.target.result), {type:'array'}).Sheets[XLSX.read(new Uint8Array(ev.target.result), {type:'array'}).SheetNames[0]]);
+                for(let r of rows) {
+                    const sku = r.SKU.toString().toUpperCase();
+                    await CloudDB.set("products", sku, { nama: r.NAMA, hpp: r.HPP });
+                    if(r.STOK > 0) await CloudDB.add("stock_history", { sku, qty: r.STOK, type: 'IN', date: new Date().toLocaleString(), note: 'Upload Masal' });
+                }
+                alert("Upload Selesai!"); render();
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        render();
+    </script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Universal Group - Produk & Stok V-PRO MAX</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #4f46e5; --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
+            --slate-800: #1e293b; --slate-100: #f1f5f9;
+        }
+        body { background: var(--slate-100); font-family: 'Inter', sans-serif; margin: 0; font-size: 13px; }
+        .nav { background: var(--slate-800); padding: 0.75rem 2rem; display: flex; justify-content: space-between; align-items: center; color: white; }
+        .nav-links a { color: #94a3b8; text-decoration: none; margin-left: 1.5rem; font-weight: 600; }
+        .container { max-width: 1300px; margin: 1.5rem auto; padding: 0 1rem; }
+        
+        .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 10px; }
+        .search-box { flex-grow: 1; padding: 0.8rem; border-radius: 8px; border: 1px solid #ddd; outline: none; }
+        
+        .grid-layout { display: grid; grid-template-columns: 1fr 350px; gap: 1.5rem; }
+        .card { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; font-size: 11px; text-transform: uppercase; color: #64748b; }
+        td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+
+        .btn { padding: 0.5rem 1rem; border-radius: 6px; border: none; cursor: pointer; font-weight: 700; font-size: 12px; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-outline { background: transparent; border: 1px solid #ddd; color: #64748b; }
+
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-weight: 700; margin-bottom: 0.4rem; color: #475569; font-size: 11px; }
+        input { width: 100%; padding: 0.6rem; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; }
+        
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 500px; border-radius: 12px; }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <div class="nav-brand">UNIVERSAL GROUP <strong>V-PRO MAX</strong></div>
+    <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="produk.html" style="color:white">Produk & Stok</a>
+        <a href="pembelian.html">Pembelian</a>
+        <a href="penjualan.html">Penjualan</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="action-bar">
+        <input type="text" id="searchBox" class="search-box" placeholder="Cari SKU atau Nama Barang..." onkeyup="renderTable()">
+        <button class="btn btn-outline" onclick="document.getElementById('fileUpload').click()">📤 Upload Excel</button>
+        <input type="file" id="fileUpload" hidden accept=".xlsx, .xls" onchange="uploadMasal(event)">
+        <button class="btn btn-danger" onclick="hapusSemua()">🗑️ Hapus Semua Data</button>
+    </div>
+
+    <div class="grid-layout">
+        <div class="card">
+            <table id="prodTable">
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Nama Barang</th>
+                        <th>HPP</th>
+                        <th>Stok</th>
+                        <th style="width:150px">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="productBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card" style="height: fit-content;">
+            <h3 id="formTitle" style="margin-top:0">Tambah Produk</h3>
+            <div class="form-group">
+                <label>SKU Produk</label>
+                <input type="text" id="sku" placeholder="SKU">
+            </div>
+            <div class="form-group">
+                <label>Nama Barang</label>
+                <input type="text" id="nama" placeholder="Nama Barang">
+            </div>
+            <div class="form-group">
+                <label>Harga Pokok (HPP)</label>
+                <input type="number" id="hpp" placeholder="0">
+            </div>
+            <div id="btnArea">
+                <button class="btn btn-primary" style="width:100%" onclick="simpanProduk()">Simpan Produk</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalStock" class="modal">
+    <div class="modal-content" style="width: 850px; max-width: 95%;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--primary); padding-bottom: 10px;">
+            <h3 id="stockTitle" style="margin:0;">Kartu Stok Detail</h3>
+            <button class="btn btn-outline" onclick="closeModal()">✕ Close</button>
+        </div>
+        
+        <div style="overflow-y: auto; max-height: 450px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table style="font-size: 12px; width:100%; border-collapse: collapse;">
+                <thead>
+    <tr style="background: var(--slate-800); color: white;">
+        <th style="padding:12px; text-align: left;">Tanggal & Jam</th> <th style="text-align: left;">Keterangan</th>                <th style="text-align: center; width: 100px;">Masuk (+)</th>   <th style="text-align: center; width: 100px;">Keluar (-)</th>  <th style="text-align: center; width: 100px;">Sisa Stok</th>   </tr>
+</thead>
+                <tbody id="stockHistBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { CloudDB } from './core-db.js';
+
+    // FUNGSI SIMPAN BARU
+    window.simpanProduk = async function() {
+        const sku = document.getElementById('sku').value.toUpperCase();
+        const nama = document.getElementById('nama').value;
+        const hpp = parseFloat(document.getElementById('hpp').value);
+
+        if(!sku) return alert("SKU Wajib!");
+
+        try {
+            await CloudDB.simpan("products", sku, { nama, hpp });
+            alert("Berhasil disimpan ke Cloud!");
+            renderTable();
+        } catch(e) { alert("Gagal koneksi internet!"); }
+    };
+
+    // FUNGSI AMBIL DATA BARU
+    window.renderTable = async function() {
+        const products = await CloudDB.ambilSemua("products");
+        // ... (logika render tabel sama seperti sebelumnya)
+    };
+</script>
+
+<script src="core-db.js"></script>
+<script>
+    let db;
+    CoreDB.init().then(res => { db = res; renderTable(); });
+
+    // 1. FUNGSI PENCARIAN & RENDER TABEL
+    async function renderTable() {
+        const keyword = document.getElementById('searchBox').value.toUpperCase();
+        const products = await getAllData("master");
+        const history = await getAllData("stock_history");
+        
+        const body = document.getElementById('productBody');
+        body.innerHTML = '';
+
+        products.filter(p => p.sku.includes(keyword) || p.nama.toUpperCase().includes(keyword)).forEach(p => {
+            const stok = history.filter(h => h.sku === p.sku).reduce((t, h) => t + (h.type === 'IN' ? h.qty : -h.qty), 0);
+            body.innerHTML += `
+                <tr>
+                    <td><b>${p.sku}</b></td>
+                    <td>${p.nama}</td>
+                    <td>Rp ${p.price.toLocaleString()}</td>
+                    <td style="font-weight:bold; color:${stok < 5 ? 'red' : 'green'}">${stok}</td>
+                    <td>
+                        <button class="btn btn-warning" style="padding:4px 8px" onclick="editMode('${p.sku}', '${p.nama}', ${p.price})">✏️</button>
+                        <button class="btn btn-outline" style="padding:4px 8px" onclick="showHistory('${p.sku}')">📑</button>
+                        <button class="btn btn-danger" style="padding:4px 8px" onclick="hapusSatu('${p.sku}')">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // 2. TAMBAH / EDIT PRODUK
+    function simpanProduk() {
+        const sku = document.getElementById('sku').value.toUpperCase();
+        const nama = document.getElementById('nama').value;
+        const price = parseFloat(document.getElementById('hpp').value);
+        if(!sku || !nama) return alert("Lengkapi data!");
+
+        const tx = db.transaction("master", "readwrite");
+        tx.objectStore("master").put({ sku, nama, price });
+        tx.oncomplete = () => {
+            resetForm();
+            renderTable();
+        };
+    }
+
+    function editMode(sku, nama, hpp) {
+        document.getElementById('formTitle').innerText = "Edit Produk";
+        document.getElementById('sku').value = sku;
+        document.getElementById('sku').disabled = true; // SKU tidak boleh diubah karena kunci utama
+        document.getElementById('nama').value = nama;
+        document.getElementById('hpp').value = hpp;
+        document.getElementById('btnArea').innerHTML = `
+            <button class="btn btn-success" style="width:100%; margin-bottom:5px;" onclick="simpanProduk()">Update Data</button>
+            <button class="btn btn-outline" style="width:100%" onclick="resetForm()">Batal</button>
+        `;
+    }
+
+    function resetForm() {
+        document.getElementById('formTitle').innerText = "Tambah Produk";
+        document.getElementById('sku').value = '';
+        document.getElementById('sku').disabled = false;
+        document.getElementById('nama').value = '';
+        document.getElementById('hpp').value = '';
+        document.getElementById('btnArea').innerHTML = `<button class="btn btn-primary" style="width:100%" onclick="simpanProduk()">Simpan Produk</button>`;
+    }
+
+    // 3. UPLOAD MASAL EXCEL
+    function uploadMasal(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        try {
+            const data = new Uint8Array(evt.target.result);
+            const wb = XLSX.read(data, {type: 'array'});
+            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+            
+            // Memulai transaksi untuk master produk dan history stok
+            const tx = db.transaction(["master", "stock_history"], "readwrite");
+            const masterStore = tx.objectStore("master");
+            const stockStore = tx.objectStore("stock_history");
+
+            rows.forEach(r => {
+                // Mapping kolom (Mendukung variasi penulisan header)
+                const sku = (r.SKU || r.sku || "").toString().toUpperCase().trim();
+                const nama = r.NAMA || r.nama || r.Nama || "Produk Tanpa Nama";
+                const hpp = parseFloat(r.HPP || r.hpp || r.Harga || 0);
+                const stokAwal = parseInt(r.STOK || r.stok || r.Qty || 0);
+
+                if (sku) {
+                    // 1. Simpan Data Produk (Nama & HPP)
+                    masterStore.put({
+                        sku: sku,
+                        nama: nama,
+                        price: hpp
+                    });
+
+                    // 2. Buat histori stok masuk (Agar kolom Stok terisi)
+                    if (stokAwal > 0) {
+                        stockStore.add({
+                            sku: sku,
+                            date: new Date().toLocaleString('id-ID'),
+                            type: 'IN',
+                            qty: stokAwal,
+                            note: 'Saldo Awal (Upload Masal)'
+                        });
+                    }
+                }
+            });
+
+            tx.oncomplete = () => {
+                alert("Berhasil mengimpor " + rows.length + " data produk dan stok!");
+                renderTable(); // Refresh tabel produk
+                e.target.value = ''; // Bersihkan input file
+            };
+
+        } catch (err) {
+            console.error(err);
+            alert("Terjadi kesalahan saat membaca file. Pastikan format Excel benar.");
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+    // 4. PENGHAPUSAN
+    function hapusSatu(sku) {
+        if(confirm("Hapus " + sku + "?")) {
+            const tx = db.transaction(["master", "stock_history"], "readwrite");
+            tx.objectStore("master").delete(sku);
+            // Opsional: Hapus histori stok juga agar database bersih
+            renderTable();
+        }
+    }
+
+    function hapusSemua() {
+        if(confirm("PERINGATAN! Seluruh data produk dan stok akan terhapus permanen. Lanjutkan?")) {
+            const tx = db.transaction(["master", "stock_history"], "readwrite");
+            tx.objectStore("master").clear();
+            tx.objectStore("stock_history").clear();
+            tx.oncomplete = () => location.reload();
+        }
+    }
+
+    // FUNGSI PEMBANTU
+    function getAllData(storeName) {
+        return new Promise(r => db.transaction(storeName).objectStore(storeName).getAll().onsuccess = e => r(e.target.result));
+    }
+
+    async function showHistory(sku) {
+    document.getElementById('stockTitle').innerText = "Kartu Stok: " + sku;
+    
+    // 1. Ambil data dari IndexedDB
+    const history = await getAllData("stock_history");
+    
+    // 2. Filter & Urutkan Kronologis (Lama ke Baru) untuk hitung saldo berjalan
+    const filtered = history
+        .filter(h => h.sku === sku)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    const hBody = document.getElementById('stockHistBody');
+    hBody.innerHTML = '';
+    
+    let runningBalance = 0;
+    let rowsHtml = [];
+
+    // 3. Iterasi Data - URUTAN: [0]Tanggal, [1]Ket, [2]Masuk, [3]Keluar, [4]Sisa
+    filtered.forEach(h => {
+        let masuk = "-";
+        let keluar = "-";
+
+        if (h.type === 'IN') {
+            masuk = `<b>${h.qty}</b>`;
+            runningBalance += h.qty;
+        } else {
+            keluar = `<b>${h.qty}</b>`;
+            runningBalance -= h.qty;
+        }
+
+        // Pastikan ada TEPAT 5 buah <td> untuk 5 buah <th>
+        rowsHtml.push(`
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px; text-align: left; color: #64748b; white-space: nowrap;">
+                    ${h.date}
+                </td>
+                <td style="padding: 12px; text-align: left; font-weight: 500; color: #1e293b;">
+                    ${h.note || 'No Note'}
+                </td>
+                <td style="padding: 12px; text-align: center; color: var(--success);">
+                    ${masuk}
+                </td>
+                <td style="padding: 12px; text-align: center; color: var(--danger);">
+                    ${keluar}
+                </td>
+                <td style="padding: 12px; text-align: center; background: #f8fafc; font-weight: 800; border-left: 1px solid #e2e8f0;">
+                    ${runningBalance}
+                </td>
+            </tr>
+        `);
+    });
+
+    // 4. Balik Urutan agar yang terbaru tampil di atas
+    if(rowsHtml.length === 0) {
+        hBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:40px; color:#94a3b8;">Belum ada riwayat transaksi.</td></tr>';
+    } else {
+        hBody.innerHTML = rowsHtml.reverse().join('');
+    }
+    
+    document.getElementById('modalStock').style.display = 'block';
+}
+
+    function closeModal() { document.getElementById('modalStock').style.display = 'none'; }
+</script>
+</body>
+</html>
