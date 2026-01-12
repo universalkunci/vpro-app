@@ -4,14 +4,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // PASTIKAN INI ADALAH DATA DARI FIREBASE CONSOLE ANDA
-const firebaseConfig = {
-    apiKey: "AIzaSy...", 
-    authDomain: "project-id.firebaseapp.com",
-    projectId: "project-id",
-    storageBucket: "project-id.appspot.com",
-    messagingSenderId: "...",
-    appId: "..."
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4ChRlnwmYxo63hVXQUngUzcGyNQWAvP0",
+    authDomain: "universal-group-app.firebaseapp.com",
+    projectId: "universal-group-app",
+    storageBucket: "universal-group-app.firebasestorage.app",
+    messagingSenderId: "541279253826",
+    appId: "1:541279253826:web:79b009baf88da9cf4e44db"
+  };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -51,4 +51,5 @@ export const CloudAuth = {
         }
     }
 };
+
 
