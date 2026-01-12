@@ -36,3 +36,19 @@ export const CloudDB = {
     },
     async delete(col, id) { return await deleteDoc(doc(db, col, id)); }
 };
+
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const auth = getAuth(app);
+
+export const CloudAuth = {
+    async login(email, password) {
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            return userCredential.user;
+        } catch (error) {
+            alert("Login Gagal: " + error.message);
+        }
+    }
+};
+
