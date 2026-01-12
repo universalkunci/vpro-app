@@ -59,52 +59,60 @@
 
     <script type="module">
     import { CloudDB } from './core-db.js';
+
+    // WAJIB menggunakan window. agar bisa dipanggil oleh onclick="simpanBaru()"
+    window.simpanBaru = async function() {
+        // Ambil elemen input
+        const skuInput = document.getElementById('sku');
+        const namaInput = document.getElementById('nama');
+        const hppInput = document.getElementById('hpp');
+
+        // Validasi data
+        const sku = skuInput.value.toUpperCase().trim();
+        const nama = namaInput.value.trim();
+        const hpp = parseFloat(hppInput.value) || 0;
+
+        if (!sku || !nama) {
+            return alert("SKU dan Nama Barang tidak boleh kosong!");
+        }
+
+        try {
+            // Tampilkan loading (opsional)
+            console.log("Menyimpan SKU:", sku);
+
+            // Simpan ke Firestore melalui CloudDB
+            await CloudDB.set("products", sku, { 
+                nama: nama, 
+                hpp: hpp,
+                lastUpdate: new Date().toLocaleString('id-ID')
+            });
+
+            alert("Data berhasil disimpan ke Cloud!");
+
+            // Kosongkan form setelah simpan
+            skuInput.value = "";
+            namaInput.value = "";
+            hppInput.value = "";
+
+            // Refresh tabel
+            if (typeof window.render === "function") {
+                window.render();
+            }
+
+        } catch (error) {
+            console.error("Gagal simpan manual:", error);
+            alert("Koneksi gagal atau database menolak akses!");
+        }
+    };
     
-    // Semua kode Anda harus berada di DALAM tag script ini
-    // agar bisa mengakses CloudDB
+    // Pastikan fungsi render juga tersedia secara global
+    window.render = async function() {
+        // ... (kode render tabel Anda)
+    };
 
-        window.render = async function() {
-            const query = document.getElementById('search').value.toUpperCase();
-            const products = await CloudDB.getAll("products");
-            const history = await CloudDB.getAll("stock_history");
-            const tbody = document.getElementById('pBody');
-            tbody.innerHTML = products.filter(p => p.id.includes(query) || p.nama.toUpperCase().includes(query)).map(p => {
-                const stok = history.filter(h => h.sku === p.id).reduce((a, b) => a + (b.type === 'IN' ? b.qty : -b.qty), 0);
-                return `<tr><td><b>${p.id}</b></td><td>${p.nama}</td><td>${p.hpp.toLocaleString()}</td><td><b>${stok}</b></td>
-                <td><button onclick="showHist('${p.id}')">📑</button> <button onclick="hapusSatu('${p.id}')">🗑️</button></td></tr>`;
-            }).join('');
-        };
-
-        window.showHist = async function(sku) {
-            document.getElementById('mTitle').innerText = "Kartu Stok: " + sku;
-            const history = await CloudDB.getAll("stock_history");
-            const filtered = history.filter(h => h.sku === sku).sort((a,b) => new Date(a.date) - new Date(b.date));
-            let s = 0;
-            document.getElementById('hBody').innerHTML = filtered.map(h => {
-                const i = h.type==='IN'?h.qty:0, o = h.type==='OUT'?h.qty:0; s+=(i-o);
-                return `<tr><td>${h.date}</td><td>${h.note}</td><td style="color:green">${i||'-'}</td><td style="color:red">${o||'-'}</td><td><b>${s}</b></td></tr>`;
-            }).reverse().join('');
-            document.getElementById('modal').style.display='block';
-        };
-
-        window.uploadMasal = async function(e) {
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                const rows = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(ev.target.result), {type:'array'}).Sheets[XLSX.read(new Uint8Array(ev.target.result), {type:'array'}).SheetNames[0]]);
-                for(let r of rows) {
-                    const sku = r.SKU.toString().toUpperCase().trim();
-                    await CloudDB.set("products", sku, { nama: r.NAMA, hpp: r.HPP });
-                    if(r.STOK > 0) await CloudDB.add("stock_history", { sku, qty: r.STOK, type: 'IN', date: new Date().toLocaleString(), note: 'Awal' });
-                }
-                alert("Selesai!"); location.reload();
-            };
-            reader.readAsArrayBuffer(e.target.files[0]);
-        };
-
-        window.hapusSatu = async function(id) { if(confirm("Hapus?")) { await CloudDB.delete("products", id); render(); } };
-        window.hapusSemua = async function() { if(confirm("Hapus Permanen SEMUA Data?")) { const p = await CloudDB.getAll("products"); for(let i of p) await CloudDB.delete("products", i.id); location.reload(); } };
-
-        render();
-    </script>
+    // Jalankan render pertama kali
+    render();
+</script>
 </body>
+
 </html>
