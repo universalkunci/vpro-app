@@ -2,61 +2,244 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Universal Group - Pembelian</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Invoice Pembelian - V-PRO MAX</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body { background: #f1f5f9; font-family: sans-serif; margin: 0; }
-        .nav { background: #1e293b; padding: 1rem 2rem; display: flex; justify-content: space-between; color: white; }
-        .nav a { color: #94a3b8; text-decoration: none; margin-left: 1rem; }
-        .container { max-width: 600px; margin: 3rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input, select, button { width: 100%; padding: 10px; margin-top: 15px; border-radius: 5px; border: 1px solid #ddd; }
-        button { background: #10b981; color: white; border: none; font-weight: bold; cursor: pointer; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        :root {
+            --primary: #4f46e5; --success: #10b981; --slate-800: #1e293b; --border: #e2e8f0;
+        }
+        body { background: #f8fafc; font-family: 'Inter', sans-serif; margin: 0; color: var(--slate-800); font-size: 13px; }
+        .nav { background: var(--slate-800); padding: 0.75rem 2rem; display: flex; justify-content: space-between; align-items: center; color: white; }
+        .nav a { color: #94a3b8; text-decoration: none; font-weight: 600; margin-left: 1rem; }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+        
+        .card { background: white; border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 2rem; }
+        .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 1.5rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 1rem; }
+        
+        label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; }
+        
+        /* Baris Input Barang */
+        .item-row-input { display: grid; grid-template-columns: 2.5fr 1fr 1.5fr 1fr; gap: 10px; background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 1rem; align-items: end; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px; font-size: 11px; color: #64748b; border-bottom: 2px solid #f1f5f9; text-transform: uppercase; }
+        td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        
+        .btn { padding: 10px 15px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; justify-content: center; transition: 0.2s; }
+        .btn-add { background: var(--primary); color: white; height: 40px; }
+        .btn-save { background: var(--success); color: white; width: 100%; margin-top: 1.5rem; font-size: 15px; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        
+        .badge-in { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 6px; font-weight: 700; font-size: 11px; }
     </style>
 </head>
 <body>
-    <nav class="nav">
-    <div class="nav-brand">UNIVERSAL GROUP <strong>V-PRO MAX</strong></div>
+
+<nav class="nav">
+    <div class="nav-brand"><i data-lucide="shopping-cart"></i> V-PRO MAX | Pembelian</div>
     <div class="nav-links">
-        <a href="index.html" style="color:white">Dashboard</a>
-        <a href="produk.html">Produk & Stok</a>
-        <a href="pembelian.html">Pembelian</a>
+        <a href="index.html">Dashboard</a>
+        <a href="produk.html">Produk</a>
+        <a href="pembelian.html" style="color:white">Pembelian</a>
         <a href="penjualan.html">Penjualan</a>
     </div>
 </nav>
-    <div class="container">
-        <h3>Input Stok Masuk</h3>
-        <label>Pilih Produk</label>
-        <select id="skuSelect"></select>
-        <input type="number" id="qty" placeholder="Jumlah Barang Masuk">
-        <input type="text" id="note" placeholder="Keterangan (Contoh: Supplier A)">
-        <button onclick="addStock()">Tambah ke Gudang</button>
+
+<div class="container">
+    <div class="card">
+        <h3 style="margin-top:0; display:flex; align-items:center; gap:8px;"><i data-lucide="file-plus" size="20"></i> Input Invoice Baru</h3>
+        <div class="header-grid">
+            <div>
+                <label>Tanggal Masuk</label>
+                <input type="date" id="invDate">
+            </div>
+            <div>
+                <label>Supplier / Keterangan</label>
+                <input type="text" id="invNote" placeholder="Nama Supplier atau No. PO">
+            </div>
+        </div>
+
+        <div class="item-row-input">
+            <div>
+                <label>Cari/Ketik SKU</label>
+                <input list="skuData" id="skuInput" placeholder="Ketik atau pilih SKU...">
+                <datalist id="skuData"></datalist>
+            </div>
+            <div>
+                <label>Qty</label>
+                <input type="number" id="qty" placeholder="0">
+            </div>
+            <div>
+                <label>Harga Beli (Satuan)</label>
+                <input type="number" id="buyPrice" placeholder="Rp">
+            </div>
+            <button class="btn btn-add" onclick="addToTempList()">
+                <i data-lucide="plus-circle" size="18"></i> Tambah
+            </button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 30px;">No</th>
+                    <th>SKU</th>
+                    <th>Nama Barang</th>
+                    <th>Qty</th>
+                    <th>Harga Satuan</th>
+                    <th>Total</th>
+                    <th style="width: 40px;"></th>
+                </tr>
+            </thead>
+            <tbody id="tempListBody"></tbody>
+        </table>
+
+        <button class="btn btn-save" onclick="saveInvoiceToDB()">
+            <i data-lucide="check-circle" size="20"></i> Simpan Invoice & Update Stok
+        </button>
     </div>
-    <script src="core-db.js"></script>
-    <script>
-        let db;
-        CoreDB.init().then(res => { 
-            db = res; 
-            db.transaction("master").objectStore("master").getAll().onsuccess = e => {
-                const sel = document.getElementById('skuSelect');
-                e.target.result.forEach(p => sel.innerHTML += `<option value="${p.sku}">${p.sku} - ${p.nama}</option>`);
-            }
+
+    <div class="card">
+        <h3 style="margin-top:0; color:var(--slate-800); border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+            <i data-lucide="history" size="20"></i> Histori Pembelian Terakhir
+        </h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Supplier/Ket</th>
+                    <th>SKU</th>
+                    <th>Masuk</th>
+                    <th>Tipe</th>
+                    <th style="width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script src="core-db.js"></script>
+<script>
+    let db;
+    let tempItems = [];
+    const skuMap = {};
+
+    document.getElementById('invDate').valueAsDate = new Date();
+
+    CoreDB.init().then(res => { 
+        db = res; 
+        loadMasterData();
+        loadPurchaseHistory();
+    });
+
+    // 1. Load data untuk Datalist (Dropdown + Ketik Manual)
+    function loadMasterData() {
+        db.transaction("master").objectStore("master").getAll().onsuccess = e => {
+            const dataList = document.getElementById('skuData');
+            e.target.result.forEach(p => {
+                skuMap[p.sku] = p.nama;
+                dataList.innerHTML += `<option value="${p.sku}">${p.nama}</option>`;
+            });
+        }
+    }
+
+    // 2. Tambah barang ke list sementara (Invoice)
+    function addToTempList() {
+        const sku = document.getElementById('skuInput').value.toUpperCase();
+        const qty = parseInt(document.getElementById('qty').value);
+        const price = parseFloat(document.getElementById('buyPrice').value) || 0;
+
+        if(!sku || !qty || qty <= 0) return alert("SKU dan Qty wajib diisi!");
+        if(!skuMap[sku]) return alert("SKU tidak terdaftar di Master Produk!");
+
+        tempItems.push({ sku, nama: skuMap[sku], qty, price, total: qty * price });
+        
+        document.getElementById('skuInput').value = '';
+        document.getElementById('qty').value = '';
+        document.getElementById('buyPrice').value = '';
+        renderTempTable();
+    }
+
+    function renderTempTable() {
+        const body = document.getElementById('tempListBody');
+        body.innerHTML = '';
+        tempItems.forEach((item, index) => {
+            body.innerHTML += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td><b>${item.sku}</b></td>
+                    <td>${item.nama}</td>
+                    <td>${item.qty}</td>
+                    <td>Rp ${item.price.toLocaleString()}</td>
+                    <td><b>Rp ${item.total.toLocaleString()}</b></td>
+                    <td><button onclick="removeItem(${index})" style="color:red; background:none; border:none; cursor:pointer"><i data-lucide="trash-2" size="16"></i></button></td>
+                </tr>`;
+        });
+        lucide.createIcons();
+    }
+
+    function removeItem(i) { tempItems.splice(i, 1); renderTempTable(); }
+
+    // 3. Simpan ke Database (stock_history)
+    function saveInvoiceToDB() {
+        if(tempItems.length === 0) return alert("Tambahkan minimal 1 barang!");
+        const date = document.getElementById('invDate').value;
+        const note = document.getElementById('invNote').value || "Pembelian";
+
+        const tx = db.transaction("stock_history", "readwrite");
+        const store = tx.objectStore("stock_history");
+
+        tempItems.forEach(item => {
+            store.add({ 
+                sku: item.sku, 
+                qty: item.qty, 
+                type: 'IN', 
+                date: date, 
+                note: `${note} (Rp ${item.price.toLocaleString()})` 
+            });
         });
 
-        window.addStock = async function() {
-    const sku = document.getElementById('skuSelect').value;
-    const qty = parseInt(document.getElementById('qty').value);
-    
-    await CloudDB.add("stock_history", {
-        sku: sku,
-        qty: qty,
-        type: 'IN',
-        date: new Date().toLocaleString('id-ID'),
-        note: document.getElementById('note').value || "Pembelian Cloud"
-    });
-    
-    alert("Stok diperbarui di semua perangkat!");
-    location.href = "produk.html";
-};
-    </script>
+        tx.oncomplete = () => {
+            alert("Berhasil disimpan!");
+            location.reload();
+        };
+    }
+
+    // 4. Load Histori Pembelian (Hanya yang bertipe 'IN')
+    function loadPurchaseHistory() {
+        db.transaction("stock_history").objectStore("stock_history").getAll().onsuccess = e => {
+            const historyBody = document.getElementById('historyBody');
+            const allData = e.target.result;
+            
+            // Filter hanya barang masuk (IN) dan urutkan dari yang terbaru
+            const purchases = allData.filter(d => d.type === 'IN').reverse().slice(0, 15);
+            
+            historyBody.innerHTML = purchases.length ? '' : '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">Belum ada histori pembelian</td></tr>';
+            
+            purchases.forEach(h => {
+                historyBody.innerHTML += `
+                    <tr>
+                        <td style="color:#64748b">${h.date}</td>
+                        <td><b>${h.note}</b></td>
+                        <td>${h.sku}</td>
+                        <td style="color:var(--success); font-weight:700;">+${h.qty}</td>
+                        <td><span class="badge-in">STOK MASUK</span></td>
+                        <td><button onclick="hapusHistori(${h.id})" style="color:#cbd5e1; border:none; background:none; cursor:pointer"><i data-lucide="x-circle" size="14"></i></button></td>
+                    </tr>`;
+            });
+            lucide.createIcons();
+        }
+    }
+
+    function hapusHistori(id) {
+        if(confirm("Hapus catatan ini? (Stok akan ikut terkoreksi)")) {
+            const tx = db.transaction("stock_history", "readwrite");
+            tx.objectStore("stock_history").delete(id);
+            tx.oncomplete = () => loadPurchaseHistory();
+        }
+    }
+</script>
 </body>
 </html>

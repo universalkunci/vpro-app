@@ -39,12 +39,11 @@
 <body>
 
 <nav class="nav">
-    <div class="nav-brand">UNIVERSAL GROUP <strong>V-PRO MAX</strong></div>
+    <div class="nav-brand">UNIVERSAL GROUP <small style="opacity: 0.5; font-size: 10px;">V7</small></div>
     <div class="nav-links">
-        <a href="index.html" style="color:white">Dashboard</a>
-        <a href="produk.html">Produk & Stok</a>
-        <a href="pembelian.html">Pembelian</a>
-        <a href="penjualan.html">Penjualan</a>
+        <a href="index.html">Home</a>
+        <a href="produk.html">Produk</a>
+        <a href="penjualan.html" class="active">Penjualan</a>
     </div>
 </nav>
 
@@ -178,168 +177,11 @@
         };
     }
 
-    // CARI FUNGSI simpanKeDB() DI penjualan.html ANDA DAN GANTI DENGAN INI
-// 1. Tambahkan variabel global di bagian atas script
-// 1. Variabel Global
-let listBarangKeluar = [];
-let skuTidakDitemukan = new Set();
-
-async function prosesKalkulasi() {
-    const file = document.getElementById('fileIn').files[0];
-    const mp = document.getElementById('mPlace').value;
-    const rate = parseFloat(document.getElementById('admRate').value) / 100;
-    const pFee = parseFloat(document.getElementById('procFee').value);
-    
-    if(!file) return alert("Pilih file!");
-
-    // Ambil data Master Produk untuk pengecekan SKU
-    const master = {};
-    const masterData = await new Promise(r => {
-        db.transaction("master").objectStore("master").getAll().onsuccess = (e) => r(e.target.result);
-    });
-    masterData.forEach(m => master[m.sku] = m.price);
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        const wb = XLSX.read(new Uint8Array(ev.target.result), {type: 'array'});
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        
-        let sSal = 0, sHpp = 0, sAdm = 0, sPrf = 0, ords = new Set();
-        listBarangKeluar = []; // Reset list
-        skuTidakDitemukan = new Set(); // Reset peringatan
-        
-        const body = document.getElementById('bodyRes'); 
-        body.innerHTML = '';
-
-        // Hitung frekuensi Order ID untuk bagi biaya proses
-        const orderOccurrenceMap = {};
-        rows.forEach(r => {
-            let idTemp = (mp === "Tokopedia") ? r['Order ID'] : (mp === "Shopee" ? r['No. Pesanan'] : r['orderNumber']);
-            if(idTemp) orderOccurrenceMap[idTemp] = (orderOccurrenceMap[idTemp] || 0) + 1;
-        });
-
-        rows.forEach(r => {
-            let oid, sku, qty, hSatuan;
-            // Mapping Marketplace (Logika V7 Anda)
-            if (mp === "Tokopedia") {
-                oid = (r['Order ID'] || "").toString().trim();
-                sku = (r['Seller SKU'] || "").toString().trim().toUpperCase();
-                qty = parseInt(r['Quantity'] || 0);
-                hSatuan = cleanNum(r['SKU Unit Original Price']);
-            } else if (mp === "Shopee") {
-                oid = (r['No. Pesanan'] || "").toString().trim();
-                sku = (r['Nomor Referensi SKU'] || "").toString().trim().toUpperCase();
-                qty = parseInt(r['Jumlah'] || 0);
-                hSatuan = cleanNum(r['Harga Setelah Diskon']);
-            } else if (mp === "Lazada") {
-                oid = (r['orderNumber'] || "").toString().trim();
-                sku = (r['sellerSku'] || "").toString().trim().toUpperCase();
-                qty = 1;
-                hSatuan = cleanNum(r['unitPrice']);
-            }
-
-            if(oid && sku && qty > 0) {
-                // CEK APAKAH SKU ADA DI MASTER
-                if (!(sku in master)) {
-                    skuTidakDitemukan.add(sku);
-                }
-
-                const tJual = hSatuan * qty;
-                const tHpp = (master[sku] || 0) * qty;
-                const biayaProsesTerbagi = pFee / (orderOccurrenceMap[oid] || 1);
-                const tAdm = (tJual * rate) + biayaProsesTerbagi;
-                const profit = tJual - tHpp - tAdm;
-
-                sSal += tJual; sHpp += tHpp; sAdm += tAdm; sPrf += profit;
-                ords.add(oid);
-
-                // Masukkan ke list untuk potong stok nanti
-                listBarangKeluar.push({ 
-                    sku, 
-                    qty, 
-                    note: `Penjualan ${mp} (${document.getElementById('storeName').value})` 
-                });
-
-                body.innerHTML += `<tr>
-                    <td>${oid}</td>
-                    <td><b style="${!(sku in master) ? 'color:red' : ''}">${sku} ${!(sku in master) ? '(?)' : ''}</b></td>
-                    <td>${formatIDR(hSatuan)}</td>
-                    <td>${qty}</td>
-                    <td>${formatIDR(tJual)}</td>
-                    <td style="color:var(--danger)">${formatIDR(tAdm)}</td>
-                    <td style="color:var(--warning)">${formatIDR(tHpp)}</td>
-                    <td class="${profit >= 0 ? 'text-profit' : 'text-loss'}">${formatIDR(profit)}</td>
-                </tr>`;
-            }
-        });
-
-        // TAMPILKAN PERINGATAN JIKA ADA SKU TIDAK DIKENAL
-        if (skuTidakDitemukan.size > 0) {
-            alert("⚠️ PERINGATAN: SKU berikut tidak ditemukan di Master Produk:\n\n" + 
-                  Array.from(skuTidakDitemukan).join(", ") + 
-                  "\n\nProses tetap berjalan, tapi stok SKU ini tidak akan berkurang dan HPP dianggap Rp 0.");
-        }
-
-        // Tampilkan hasil statistik
-        document.getElementById('outOrd').innerText = ords.size;
-        document.getElementById('outSal').innerText = formatIDR(sSal);
-        document.getElementById('outCost').innerText = formatIDR(sHpp + sAdm);
-        document.getElementById('outPrf').innerText = formatIDR(sPrf);
-        document.getElementById('resArea').style.display = 'block';
-        
-        finalData = { 
-            sales: sSal, 
-            profit: sPrf, 
-            orders: ords.size, 
-            mplace: mp, 
-            store: document.getElementById('storeName').value, 
-            month: document.getElementById('reportMonth').value 
-        };
-    };
-    reader.readAsArrayBuffer(file);
-} 
-
-// 2. Di dalam fungsi prosesKalkulasi(), pastikan array diisi setiap kali baris diproses
-// Tambahkan baris ini di dalam loop rows.forEach:
-listBarangKeluar.push({
-    sku: sku,
-    qty: qty,
-    note: `Penjualan ${mp} (${document.getElementById('storeName').value})`
-});
-
-// 3. Update Fungsi simpanKeDB
-function simpanKeDB() {
-    if (!finalData || listBarangKeluar.length === 0) return alert("Tidak ada data untuk disimpan");
-
-    // Buka transaksi untuk dua tabel sekaligus
-    const tx = db.transaction(["history", "stock_history"], "readwrite");
-    const historyStore = tx.objectStore("history");
-    const stockStore = tx.objectStore("stock_history");
-
-    // A. Simpan data rekap bulanan ke Dashboard
-    historyStore.add(finalData);
-
-    // B. Simpan setiap item ke Kartu Stok sebagai barang KELUAR (OUT)
-    listBarangKeluar.forEach(item => {
-        stockStore.add({
-            sku: item.sku,
-            date: new Date().toLocaleString('id-ID'),
-            type: 'OUT',
-            qty: item.qty,
-            note: item.note
-        });
-    });
-
-    tx.oncomplete = () => {
-        alert("Data Penjualan Berhasil Disimpan & Stok Otomatis Berkurang!");
-        window.location.href = "index.html";
-    };
-
-    tx.onerror = (err) => {
-        console.error("Gagal menyimpan:", err);
-        alert("Terjadi kesalahan saat menyimpan data.");
-    };
-}
+    function simpanKeDB() {
+        const tx = db.transaction("history", "readwrite");
+        tx.objectStore("history").add(finalData);
+        tx.oncomplete = () => { alert("Rekap V7 Berhasil Disimpan!"); window.location.href = "index.html"; };
+    }
 </script>
 </body>
 </html>
